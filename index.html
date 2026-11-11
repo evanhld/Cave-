@@ -53,7 +53,7 @@ main{padding:26px 28px 56px;max-width:1100px;width:100%}
   .nav a[aria-current="page"]{background:none;color:var(--accent)}
   main{padding:max(18px,calc(env(safe-area-inset-top) + 8px)) 16px calc(96px + env(safe-area-inset-bottom))}
 }
-.btn{font:500 15px var(--body);padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn{font:500 15px var(--body);padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
 .btn:hover{border-color:#c9c9d1}
 .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
 .btn.danger{color:var(--crit)}
@@ -84,6 +84,7 @@ main{padding:26px 28px 56px;max-width:1100px;width:100%}
 .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
 .pill.peak{color:var(--good)}.pill.now{color:var(--good)}.pill.now::before{background:none;box-shadow:inset 0 0 0 2px currentColor}
 .pill.soon{color:var(--warn)}.pill.early{color:var(--info)}.pill.past{color:var(--crit)}.pill.none{color:var(--muted);border-style:dashed}
+.wprice{font-size:12px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}.up{color:var(--good)}.down{color:var(--crit)}
 .tag{font:600 10px var(--body);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--soft);border-radius:5px;padding:1px 6px;vertical-align:middle}
 .stars{color:#e0a23a;letter-spacing:1px}
 .banner{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;background:#fff6e3;border-radius:12px;padding:10px 14px;margin-bottom:20px;font-size:14px}
@@ -198,6 +199,7 @@ Régnié;Beaujolais;r:Gamay:1-2-4
 Saint-Amour;Beaujolais;r:Gamay:1-2-5
 Bourgogne;Bourgogne;r:Pinot noir:1-3-6|b:Chardonnay:1-2-5
 Bourgogne Aligoté;Bourgogne;b:Aligoté:0-1-3
+Coteaux Bourguignons;Bourgogne;r:Gamay, Pinot noir:0-1-4|b:Chardonnay, Aligoté:0-1-3|o:Gamay, Pinot noir:0-0-2
 Hautes-Côtes de Nuits;Bourgogne;r:Pinot noir:2-3-6|b:Chardonnay:1-2-5
 Hautes-Côtes de Beaune;Bourgogne;r:Pinot noir:2-3-6|b:Chardonnay:1-2-5
 Petit Chablis;Bourgogne;b:Chardonnay:0-1-3
@@ -405,6 +407,10 @@ function place(id){return S.places.find(function(p){return p.id===id;});}
 function qty(w){return S.bottles.filter(function(b){return b.wineId===w.id;}).length;}
 function wTitle(w){return esc(w.name)+(w.vintage?' '+w.vintage:'');}
 function cvar(c){return 'var(--c-'+(COLORS[c]?c:'rouge')+')';}
+function val(w){return +w.value||+w.price||0;}
+function gain(w){if(!(+w.price&&+w.value))return '';var p=Math.round((w.value-w.price)/w.price*100);return ' <b class="'+(p>=0?'up':'down')+'">'+(p>=0?'+':'')+p+' %</b>';}
+function priceLine(w){if(!(+w.price||+w.value))return '';return (+w.price?'Achat '+fmtE.format(w.price):'')+(+w.value?(+w.price?' · ':'')+'Valeur '+fmtE.format(w.value)+gain(w):'');}
+function reviewUrl(w){return 'https://www.vivino.com/search/wines?q='+encodeURIComponent([w.producer,w.name!==w.producer?w.name:'',w.vintage||''].filter(Boolean).join(' '));}
 function peakOf(w){var f=+w.from||0,t=+w.to||0;if(+w.peak)return +w.peak;if(f&&t)return f+Math.round((t-f)/3);return f||0;}
 function phase(w){
   var f=+w.from||0,t=+w.to||0,p=peakOf(w);
@@ -431,7 +437,7 @@ function medal(c){return '<div class="medal"><i style="background:color-mix(in s
 function wcard(w){
   var n=qty(w);
   return '<div class="wcard'+(n?'':' out')+'" role="button" tabindex="0" data-act="open-wine" data-id="'+w.id+'"><div class="wtop"><span>'+(w.vintage||'NM')+'</span><span>x'+n+'</span></div>'+medal(w.color)
-   +'<p class="wprod">'+esc(w.producer||'\u00a0')+'</p><p class="wname">'+esc(w.name)+(w.demo?' <span class="tag">Exemple</span>':'')+'</p><p class="wreg">'+esc(w.region||COLORS[w.color])+'</p>'+pill(w)+'</div>';
+   +'<p class="wprod">'+esc(w.producer||'\u00a0')+'</p><p class="wname">'+esc(w.name)+(w.demo?' <span class="tag">Exemple</span>':'')+'</p><p class="wreg">'+esc(w.region||COLORS[w.color])+'</p>'+pill(w)+(priceLine(w)?'<p class="wprice">'+priceLine(w)+'</p>':'')+'</div>';
 }
 
 /* ---------- persistence ---------- */
@@ -480,7 +486,7 @@ function section(title,list,note){
 }
 function viewHome(){
   var nb=S.bottles.length;
-  var value=S.wines.reduce(function(a,w){return a+(+w.price||0)*qty(w);},0);
+  var value=S.wines.reduce(function(a,w){return a+val(w)*qty(w);},0);
   var st=S.wines.filter(function(w){return qty(w)>0;});
   var by=function(k){return st.filter(function(w){return k.indexOf(phase(w).k)>=0;}).sort(function(a,b){return (+a.to||9999)-(+b.to||9999);});};
   var peakN=by(['peak','soon']).reduce(function(a,w){return a+qty(w);},0);
@@ -565,8 +571,10 @@ function openWine(id){
   var ts=S.tastings.filter(function(t){return t.wineId===id;}).sort(function(a,b){return b.date.localeCompare(a.date);});
   var h='<div class="mhead"><div class="hero">'+medal(w.color)+'<div><p class="eyebrow">'+COLORS[w.color]+(w.region?' · '+esc(w.region):'')+'</p><h2>'+wTitle(w)+'</h2><p class="meta">'+esc([w.producer,w.appellation!==w.name?w.appellation:''].filter(Boolean).join(' · '))+'</p><p style="margin-top:4px;font-size:14px">'+stars(w.rating)+'</p></div></div><button class="x" data-act="close" aria-label="Fermer">×</button></div>';
   h+=agingBar(w)||'<div class="aging"><div class="row">'+pill(w)+'<span>Fenêtre de dégustation inconnue.</span></div></div>';
-  var facts=[['Cépages',w.grapes],['Prix',w.price?fmtE.format(w.price):''],['Accords',w.pairing],['Notes',w.comment]].filter(function(f){return f[1];});
+  var facts=[['Cépages',w.grapes],['Avis en ligne',w.web],['Accords',w.pairing],['Notes',w.comment]].filter(function(f){return f[1];});
   if(facts.length)h+='<dl class="facts">'+facts.map(function(f){return '<dt>'+f[0]+'</dt><dd>'+esc(f[1])+'</dd>';}).join('')+'</dl>';
+  var vh=(w.vhist||[]).slice().reverse();
+  h+='<div><h3>Prix</h3><ul class="blist"><li>'+(priceLine(w)||'<span class="muted">Prix non renseigné</span>')+'</li>'+vh.map(function(x){return '<li class="muted" style="font-size:14px">'+fmtDate(x.d)+' : '+fmtE.format(x.v)+'</li>';}).join('')+'</ul><div class="btns" style="margin-top:8px"><button class="btn small" data-act="set-value" data-id="'+id+'">Mettre à jour la valeur</button><a class="btn small" href="'+esc(reviewUrl(w))+'" target="_blank" rel="noopener">Voir les avis en ligne</a></div></div>';
   h+='<div><h3>'+bs.length+' bouteille'+(bs.length>1?'s':'')+' en cave</h3>'+(bs.length?'<ul class="blist">'+bs.map(function(b){return '<li>'+where(b)+'</li>';}).join('')+'</ul>':'')+'</div>';
   h+='<div class="btns">'+(bs.length?'<button class="btn primary" data-act="taste" data-id="'+id+'" data-remove="1">Ouvrir une bouteille</button>':'')+'<button class="btn" data-act="add-bottle" data-id="'+id+'">+ 1 bouteille</button><button class="btn" data-act="taste" data-id="'+id+'" data-remove="0">Noter</button><button class="btn" data-act="edit-wine" data-id="'+id+'">Modifier</button><button class="btn danger" data-act="del-wine" data-id="'+id+'">Supprimer</button></div>';
   if(ts.length)h+='<div><h3>Dégustations</h3><ul class="blist">'+ts.map(function(t){return '<li><span class="muted">'+fmtDate(t.date)+(t.occasion?' · '+esc(t.occasion):'')+'</span><span>'+stars(t.rating)+'</span>'+(t.text?'<span>'+esc(t.text)+'</span>':'')+'</li>';}).join('')+'</ul></div>';
@@ -597,6 +605,8 @@ function wineForm(id){
    +'<label class="f">Apogée dès<input name="peak" type="number" inputmode="numeric" value="'+(id&&peakOf(w)?peakOf(w):'')+'"'+(id&&peakOf(w)?' data-dirty="1"':'')+'></label>'
    +'<label class="f">À boire jusqu’à<input name="to" type="number" inputmode="numeric" value="'+v('to')+'"'+d('to')+'></label>'
    +'<label class="f">Ma note<select name="rating">'+rate+'</select></label>'
+   +'<label class="f">Valeur actuelle (€)<input name="value" type="number" inputmode="decimal" min="0" step="0.5" value="'+v('value')+'"></label>'
+   +'<label class="f full">Avis en ligne<input name="web" value="'+v('web')+'" placeholder="4,1/5 sur Vivino, 90/100…"></label>'
    +'<label class="f full">Accords mets et vins<input name="pairing" value="'+v('pairing')+'"></label>'
    +'<label class="f full">Notes<textarea name="comment">'+v('comment')+'</textarea></label>'
    +'<div class="full"><button class="btn small" type="button" data-act="recalc">Recalculer d’après l’appellation</button></div></div></details>'
@@ -672,6 +682,9 @@ function tasteForm(wineId,remove,bottleId){
    +'<label class="full check"><input type="checkbox" name="remove" value="1"'+(remove?' checked':'')+'> Retirer une bouteille du stock</label>'
    +'<div class="full btns"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="close">Annuler</button></div></form>');
 }
+function valueForm(id){var w=wine(id);if(!w)return;
+  openModal(mhead('','Valeur de '+wTitle(w),'Prix actuel d’une bouteille, relevé chez un caviste ou sur un site de cotes.')+'<form class="form" data-form="value"><input type="hidden" name="id" value="'+id+'"><label class="f full">Valeur actuelle (€)<input name="value" type="number" inputmode="decimal" min="0" step="0.5" required value="'+(w.value||'')+'"></label><div class="full btns"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="close">Annuler</button></div></form>');
+}
 function placeForm(){
   openModal(mhead('','Nouveau casier','')+'<form class="form" data-form="place"><label class="f full">Nom<input name="name" required placeholder="Cave, cuisine, frigo à vin…"></label><label class="f">Étagères<input name="rows" type="number" inputmode="numeric" min="1" max="20" value="4" required></label><label class="f">Places par étagère<input name="cols" type="number" inputmode="numeric" min="1" max="20" value="6" required></label><div class="full btns"><button class="btn primary" type="submit">Créer</button><button class="btn" type="button" data-act="close">Annuler</button></div></form>');
 }
@@ -696,7 +709,7 @@ function exportModal(){
   openModal(mhead('','Exporter ma cave','')+'<p class="muted">Garde cette sauvegarde. Tu peux la réimporter ici ou sur un autre appareil.</p><textarea id="json-out" readonly rows="6">'+esc(JSON.stringify(S,null,2))+'</textarea><div class="btns"><button class="btn primary" data-act="dl-json">Enregistrer le fichier</button><button class="btn" data-act="copy-json">Copier</button><button class="btn" data-act="close">Fermer</button></div><p class="save" id="exp-msg"></p>');
 }
 function importModal(){
-  openModal(mhead('','Importer une sauvegarde','')+'<p class="muted">Choisis le fichier exporté ou colle son contenu. Cela remplace les données actuelles.</p><input type="file" id="json-file" accept=".json,application/json" aria-label="Fichier de sauvegarde"><textarea id="json-in" rows="6" aria-label="Contenu de la sauvegarde"></textarea><div class="btns"><button class="btn primary" data-act="import-ok">Importer</button><button class="btn" data-act="close">Annuler</button></div><p class="save" id="exp-msg"></p>');
+  openModal(mhead('','Importer une sauvegarde','')+'<p class="muted">Choisis le fichier exporté ou colle son contenu. Une sauvegarde complète remplace les données actuelles ; un fichier d’ajout de vins s’ajoute à ta cave.</p><input type="file" id="json-file" accept=".json,application/json" aria-label="Fichier de sauvegarde"><textarea id="json-in" rows="6" aria-label="Contenu de la sauvegarde"></textarea><div class="btns"><button class="btn primary" data-act="import-ok">Importer</button><button class="btn" data-act="close">Annuler</button></div><p class="save" id="exp-msg"></p>');
 }
 
 /* ---------- actions ---------- */
@@ -717,6 +730,7 @@ function act(a,el,e){
     case 'open-wine':openWine(id);break;
     case 'pick-app':{var f=wform();if(f){f.elements.appellation.value=el.dataset.name;$('#sugg').innerHTML='';autofill();}break;}
     case 'recalc':autofill(true);break;
+    case 'set-value':valueForm(id);break;
     case 'ai-fill':aiFill(null);break;
     case 'add-bottle':S.bottles.push({id:uid(),wineId:id,placeId:null,r:null,c:null});commit();openWine(id);break;
     case 'taste':tasteForm(id,el.dataset.remove==='1',el.dataset.bottle||'');break;
@@ -762,6 +776,13 @@ function act(a,el,e){
       try{
         var d2=JSON.parse($('#json-in').value);
         if(!d2||!Array.isArray(d2.wines)||!Array.isArray(d2.bottles))throw new Error('format');
+        if(d2.merge){
+          var have={};S.wines.forEach(function(w){have[w.id]=1;});
+          var add=d2.wines.filter(function(w){return w&&w.id&&!have[w.id];}),ok={};add.forEach(function(w){ok[w.id]=1;});
+          S.wines=S.wines.concat(add);
+          S.bottles=S.bottles.concat(d2.bottles.filter(function(b){return ok[b.wineId];}).map(function(b){return {id:uid(),wineId:b.wineId,placeId:null,r:null,c:null};}));
+          closeModal();commit();if(location.hash!=='#vins')location.hash='vins';break;
+        }
         d2.places=d2.places||[];d2.tastings=d2.tastings||[];d2.v=2;
         S=d2;UI.place=null;closeModal();commit();
       }catch(er){$('#exp-msg').textContent='Ce contenu n’est pas une sauvegarde valide.';}
@@ -774,13 +795,18 @@ function submitForm(f){
     var app=d.appellation.trim(),name=d.name.trim()||app;
     if(!name){f.elements.appellation.focus();return;}
     var w=d.id?wine(d.id):{id:uid()};
-    Object.assign(w,{name:name,producer:d.producer.trim(),color:d.color,vintage:num(d.vintage),appellation:app,region:d.region.trim(),grapes:d.grapes.trim(),price:num(d.price),rating:num(d.rating)||0,from:num(d.from),peak:num(d.peak),to:num(d.to),pairing:d.pairing.trim(),comment:d.comment.trim(),src:d.src||''});
+    var nv=num(d.value);if(nv&&nv!==+w.value){w.vhist=(w.vhist||[]).concat([{d:today(),v:nv}]);}
+    Object.assign(w,{value:nv,web:(d.web||'').trim(),name:name,producer:d.producer.trim(),color:d.color,vintage:num(d.vintage),appellation:app,region:d.region.trim(),grapes:d.grapes.trim(),price:num(d.price),rating:num(d.rating)||0,from:num(d.from),peak:num(d.peak),to:num(d.to),pairing:d.pairing.trim(),comment:d.comment.trim(),src:d.src||''});
     if(!d.id){
       S.wines.push(w);
       var n=Math.max(0,Math.min(500,parseInt(d.qty,10)||0));
       for(var i=0;i<n;i++)S.bottles.push({id:uid(),wineId:w.id,placeId:null,r:null,c:null});
     }
     closeModal();commit();openWine(w.id);
+  }else if(kind==='value'){
+    var wv=wine(d.id),x=num(d.value);if(!wv||!x)return;
+    wv.value=x;wv.vhist=(wv.vhist||[]).concat([{d:today(),v:x}]);
+    closeModal();commit();openWine(wv.id);
   }else if(kind==='taste'){
     var wi=wine(d.wineId);if(!wi)return;
     var rt=num(d.rating)||0;
